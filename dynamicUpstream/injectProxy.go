@@ -44,7 +44,6 @@ type Routes struct {
 
 type route struct {
 	labelMatchers map[string]*labels.Matcher
-	labels        []*labels.Matcher
 }
 
 func NewRoutes() *Routes {
@@ -76,20 +75,17 @@ func customUpstream() http.Handler {
 }
 
 ////////////////////////////////////////////////////////
-// customer this to dynamic proxy to upstream
-func (r route) getProxy() *httputil.ReverseProxy {
-	if r.labels == nil {
+// customer this func to dynamic proxy to upstream
+func (r *route) getProxy() *httputil.ReverseProxy {
+	label := r.labelMatchers["hostip"]
+	if label == nil {
 		return defaultProxy
 	}
-	for _, label := range r.labels {
-		if strings.EqualFold(label.Name, "hostip") {
-			if strings.HasPrefix(label.Value, "10.18.") {
-				return nhProxy
-			}
-			if strings.HasPrefix(label.Value, "10.16.") {
-				return sdProxy
-			}
-		}
+	if strings.HasPrefix(label.Value, "10.18.") {
+		return nhProxy
+	}
+	if strings.HasPrefix(label.Value, "10.16.") {
+		return sdProxy
 	}
 	return defaultProxy
 }
@@ -148,11 +144,11 @@ func (r *route) parseNode(node parser.Node) error {
 	case *parser.MatrixSelector:
 		// inject labelselector
 		if vs, ok := n.VectorSelector.(*parser.VectorSelector); ok {
-			r.labels = r.matchLabels(vs.LabelMatchers)
+			r.matchLabels(vs.LabelMatchers)
 		}
 
 	case *parser.VectorSelector:
-		r.labels = r.matchLabels(n.LabelMatchers)
+		r.matchLabels(n.LabelMatchers)
 
 	default:
 		panic(fmt.Errorf("parser.Walk: unhandled node type %T", n))
@@ -161,16 +157,14 @@ func (r *route) parseNode(node parser.Node) error {
 	return nil
 }
 
-func (r route) matchLabels(sources []*labels.Matcher) []*labels.Matcher {
-	var res []*labels.Matcher
+func (r *route) matchLabels(sources []*labels.Matcher) {
 	for _, source := range sources {
 		if _, ok := r.labelMatchers[source.Name]; ok {
-			res = append(res, source)
+			r.labelMatchers[source.Name] = source
 		}
 	}
-	return res
 }
 
-func (r Routes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *Routes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
