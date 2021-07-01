@@ -24,17 +24,17 @@ const (
 )
 
 func init() {
-	upstream, err := url.Parse("http://10.16.38.74:39999/")
+	upstream, err := url.Parse("http://10.0.0.1:39999/")
 
 	if err != nil {
 		log.Fatalf("Failed to build parse upstream URL: %v", err)
 	}
 	defaultProxy = httputil.NewSingleHostReverseProxy(upstream)
 
-	upstream, _ = url.Parse("http://10.18.37.180:39999/")
+	upstream, _ = url.Parse("http://10.0.0.2:39999/")
 	nhProxy = httputil.NewSingleHostReverseProxy(upstream)
 
-	upstream, _ = url.Parse("http://10.18.37.181:39999/")
+	upstream, _ = url.Parse("http://10.0.0.3:39999/")
 	sdProxy = httputil.NewSingleHostReverseProxy(upstream)
 }
 
@@ -67,12 +67,16 @@ func customUpstream() http.Handler {
 		}
 		log.Printf("%v", exp.Type())
 		r := &route{labelMatchers: make(map[string]*labels.Matcher)}
+		////////////////////////////////////////////////////////
+		// get labels concerned
 		r.labelMatchers["hostip"] = nil
 		r.parseNode(exp)
 		r.getProxy().ServeHTTP(w, req)
 	})
 }
 
+////////////////////////////////////////////////////////
+// customer this to dynamic proxy to upstream
 func (r route) getProxy() *httputil.ReverseProxy {
 	if r.labels == nil {
 		return defaultProxy
