@@ -64,12 +64,15 @@ func customUpstream() http.Handler {
 		if err != nil {
 			return
 		}
-		log.Printf("%v", exp.Type())
-		r := &route{labelMatchers: make(map[string]*labels.Matcher)}
+		r := route{labelMatchers: make(map[string]*labels.Matcher)}
 		////////////////////////////////////////////////////////
 		// get labels concerned
 		r.labelMatchers["hostip"] = nil
-		r.parseNode(exp)
+		err = r.parseNode(exp)
+		if err != nil {
+			http.Error(w, "parsing query exp failed", http.StatusInternalServerError)
+			return
+		}
 		r.getProxy().ServeHTTP(w, req)
 	})
 }
@@ -142,12 +145,13 @@ func (r *route) parseNode(node parser.Node) error {
 	// nothing to do
 
 	case *parser.MatrixSelector:
-		// inject labelselector
+		log.Printf("%v", n)
 		if vs, ok := n.VectorSelector.(*parser.VectorSelector); ok {
 			r.matchLabels(vs.LabelMatchers)
 		}
 
 	case *parser.VectorSelector:
+		log.Printf("%v", n)
 		r.matchLabels(n.LabelMatchers)
 
 	default:
